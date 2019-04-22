@@ -1,11 +1,34 @@
 var express = require('express');
 var router = express.Router();
-
+const data = require('../data');
 const passport = require('passport');
 const LocalStrategy = require('passport-local').Strategy;
+var FacebookStrategy = require('passport-facebook').Strategy;
 
-passport.use(new LocalStrategy((username, password, done) => {
-	return done(null, username);
+const facebook={
+    clientId:"",
+    secret:"",
+    callback:"http://localhost:3000/callback/facebook"
+}
+
+passport.use(new LocalStrategy(function(username, password, done) {
+    var findUser={}
+
+    // Assignment 2
+    // verify User from User Mongoose Model and If user exists then MArked login and Show name in Logged in state Else Error USer Not found
+
+    data.forEach(function(user){
+        if(user.username==username && user.password==password){
+            findUser=user
+        }
+    })
+    if(Object.keys(findUser).length){
+        return done(null, findUser);
+
+    }else{
+        console.log(">error")
+        return done({status:"User not Found"});
+    }
 }))
 
 passport.serializeUser(function (user, cb) {
@@ -13,13 +36,22 @@ passport.serializeUser(function (user, cb) {
 });
  
 passport.deserializeUser(function (user, cb) {
- 
     cb(null, user);
- 
 });
+//
+passport.use(new FacebookStrategy({
+        clientID: facebook.clientId,
+        clientSecret: facebook.secret,
+        callbackURL: facebook.callback,
+        enableProof: true,
+        profileFields: ['id', 'emails', 'name'] //This
+    },
+function (accessToken, refreshToken, profile, done) {
+    //Save user in DB
+        return done(null,profile)
+    }
+));
 
-
-const data = require('../data');
 
 /* GET home page. */
 router.get('/', function(req, res, next) {
@@ -34,15 +66,18 @@ router.post('/login', passport.authenticate('local'), function(req, res, next) {
 		res.end("??????????????");
 });
 
-// router.post('/login', function(req, res, next) {
-// 	passport.authenticate('local', (err, result) => {
-// 			console.log(err, result);
-//         if (result) {
-//             return res.status(200).send(result);
-//         }
-//         return res.status(401).send(err);
-//     })(req, res, next);
-// });
-
+router.get('/facebookLogin', passport.authenticate('facebook', {
+    scope: ['email', 'user_location'],
+    failureRedirect: '/',
+    session: false
+}))
+router.get('/callback/facebook', passport.authenticate('facebook', {
+    failureRedirect: '/',
+    session: false
+}), function (req, res) {
+    console.log(req.user,">>>>>>>>>>>>>")
+    //Save token in cookie and mareked login
+    res.redirect("/")
+})
 
 module.exports = router;
