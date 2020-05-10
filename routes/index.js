@@ -24,34 +24,41 @@ passport.use(new LocalStrategy(function(username, password, done) {
     })
     if(Object.keys(findUser).length){
         return done(null, findUser);
-
     }else{
         console.log(">error")
-        return done({status:"User not Found"});
+        return done({status:"400", message: "Invalid credentials" });
     }
 }))
 
-passport.serializeUser(function (user, cb) {
-    cb(null, user);
+passport.serializeUser(function (user, cb) {  
+    cb(null, { username: user.username, name: user.name });
 });
- 
+
 passport.deserializeUser(function (user, cb) {
+  console.log('.....deserializing user....', user);
     cb(null, user);
 });
 //
-passport.use(new FacebookStrategy({
-        clientID: facebook.clientId,
-        clientSecret: facebook.secret,
-        callbackURL: facebook.callback,
-        enableProof: true,
-        profileFields: ['id', 'emails', 'name'] //This
-    },
-function (accessToken, refreshToken, profile, done) {
-    //Save user in DB
-        return done(null,profile)
-    }
-));
+// passport.use(new FacebookStrategy({
+//         clientID: facebook.clientId,
+//         clientSecret: facebook.secret,
+//         callbackURL: facebook.callback,
+//         enableProof: true,
+//         profileFields: ['id', 'emails', 'name'] //This
+//     },
+// function (accessToken, refreshToken, profile, done) {
+//     //Save user in DB
+//         return done(null,profile)
+//     }
+// ));
 
+function isAuthenticated(req, res, next) {
+  if (req.user) {
+    return next();
+  }
+  res.status = 403;
+  return res.send("Not authenticated!");
+}
 
 /* GET home page. */
 router.get('/', function(req, res, next) {
@@ -63,8 +70,19 @@ router.get('/login', function(req, res, next) {
 });
 
 router.post('/login', passport.authenticate('local'), function(req, res, next) {
-		res.end("??????????????");
+  let user = { username: req.user.username, name: req.user.name };
+  res.send(user);
+  // res.end("??????????????");
 });
+
+router.post('/logout', isAuthenticated, function (req, res, next) {
+  req.logout();
+  res.send('successfully logout!');
+});
+
+router.get('/check-auth-status', isAuthenticated, function(req, res, next) {
+  return res.end("Authenticated.");
+})
 
 router.get('/facebookLogin', passport.authenticate('facebook', {
     scope: ['email', 'user_location'],
